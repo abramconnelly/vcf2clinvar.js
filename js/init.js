@@ -65,7 +65,8 @@ function report_semaphore() {
   }
   */
 
-  var data = clinvar_report_json(g_clinvar_lines, g_genome_lines);
+  //var data = clinvar_report_json(g_clinvar_lines, g_genome_lines);
+  var data = vcf2clinvar.clinvar_report_json(g_clinvar_lines, g_genome_lines);
   var res = data.results;
 
   console.log(data);

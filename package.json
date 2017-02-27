@@ -1,0 +1,22 @@
+{
+    "name": "vcf2clinvar.js",
+    "version": "0.1.0",
+    "description": "Generate a report based on matching a genome VCF to the VCF version of ClinVar's variant database.",
+    "keywords": ["clinvar", "vcf2clinvar", "vcf", "genotype"],
+    "repository": "https://github.com/abramconnelly/vcf2clinvar.js.git",
+    "author": "Abram Connelly <abram.connelly@gmail.com>",
+    "dependencies": {
+        "commander": ">=2.9.0"
+    },
+		"bin" : { "vcf2clinvar" : "./index.js" },
+    "license" : "MIT",
+    "main": "index",
+    "engines": {
+        "node": ">= 0.4.1"
+    },
+    "scripts": {
+        "prepublish": "npm prune",
+        "test": "make lint && make test"
+    }
+}
+
