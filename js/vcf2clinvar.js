@@ -48,6 +48,10 @@
     "20":"chr20", "chr20":"chr20", "CHR20":"chr20",
     "21":"chr21", "chr21":"chr21", "CHR21":"chr21",
     "22":"chr22", "chr22":"chr22", "CHR22":"chr22",
+    "23":"chrX", "chr23":"chrX",
+    "24":"chrY", "chr24":"chrY",
+    "25":"chrM", "chr25":"chrM",
+    "26":"chr?", "chr26":"chr?",
     "X":"chrX", "x":"chrX", "chrx":"chrX", "CHRX":"chrX",
     "Y":"chrY", "y":"chrY", "chry":"chrY", "CHRY":"chrY",
     "MT":"chrM", "mt":"chrM", "chrM":"chrM", "CHRM":"chrM" }
@@ -78,6 +82,9 @@
       21: 'chr21', 22: 'chr22', 23: 'chrX', 24: 'chrY', 25: 'chrMT',
   };
 
+  vcf2clinvar.CHROM_MAP = CHROM_MAP;
+  vcf2clinvar.CHROM_INDEX = CHROM_INDEX;
+  vcf2clinvar.REV_CHROM_INDEX = REV_CHROM_INDEX;
 
   function _chrom_idx(c) {
     if (c in CHROM_INDEX) { return CHROM_INDEX[c]; }
