@@ -302,6 +302,8 @@ function init_table() {
 			widthFixed: true,
 			headerTemplate : '{content} {icon}', // new in v2.7. Needed to add the bootstrap icon!
 
+      sortList: [[2,0]],
+
       //headers: { 2 : { sortInitialOrder: 'asc' } },
 
 			// widget code contained in the jquery.tablesorter.widgets.js file
@@ -435,7 +437,11 @@ function report_semaphore() {
   // https://mottie.github.io/tablesorter/docs/example-trigger-sort.html
   // https://mottie.github.io/tablesorter/docs/example-triggers.html
   //
-  $("#table").find("th:contains(Allele)").trigger("sort");
+  //$("#table").find("th:contains(Allele)").trigger("sort");
+  //
+  // oof: http://wowmotty.blogspot.com/2011/06/jquery-tablesorter-missing-docs.html
+  //
+  $("#table").trigger("sorton", [[[2,0]]] );
 
   remove_spinner();
 }
