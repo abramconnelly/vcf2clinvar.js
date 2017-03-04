@@ -214,9 +214,18 @@ function load_file(e) {
 
   }
 
+  g_genome_lines = undefined;
+
   var data_lines = data_str.split("\n");
   if (data_lines.length==0) { return; }
   if (data_lines[0].search(/##fileformat=VCF/)>=0) {
+
+    for (var fuck=0; fuck<data_lines.length; fuck++) {
+      if (data_lines[fuck].match(/Oculocutaneous_albinism_type_1B/)) {
+        console.log(">>>>fuck:", fuck, data_lines[fuck]);
+      }
+    }
+
     g_genome_lines = data_lines;
     report_semaphore();
     return;
@@ -225,7 +234,8 @@ function load_file(e) {
   if (data_lines[0].search(/23and[mM]e/)>=0) {
     console.log(">>> 23andme data?");
 
-    var vcf_lines = convert_23andme_to_vcf(g_23andme_ref_b37, data_lines);
+    //var vcf_lines = convert_23andme_to_vcf(g_23andme_ref_b37, data_lines);
+    g_genome_lines = convert_23andme_to_vcf(g_23andme_ref_b37, data_lines);
     report_semaphore();
     return;
   }
@@ -233,7 +243,8 @@ function load_file(e) {
   if (data_lines[0].search(/Ancestry[dD][nN][aA]/)>=0) {
     console.log(">>> Ancestry DNA?");
 
-    var vcf_lines = convert_ancestrydna_to_vcf(g_ancestrydna_ref_b37, data_lines);
+    //var vcf_lines = convert_ancestrydna_to_vcf(g_ancestrydna_ref_b37, data_lines);
+    g_genome_lines = convert_ancestrydna_to_vcf(g_ancestrydna_ref_b37, data_lines);
     report_semaphore();
     return;
   }
@@ -261,6 +272,111 @@ function remove_spinner() {
 var g_first_sort = true;
 var g_variants = [];
 
+function init_table() {
+
+  // lets try jquery tablesorter
+  //
+  $(function() {
+
+    $.tablesorter.themes.bootstrap = {
+			// these classes are added to the table. To see other table classes available,
+			// look here: http://getbootstrap.com/css/#tables
+			table        : 'table table-bordered table-striped',
+			caption      : 'caption',
+			// header class names
+			header       : 'bootstrap-header', // give the header a gradient background (theme.bootstrap_2.css)
+			sortNone     : '',
+			sortAsc      : '',
+			sortDesc     : '',
+			active       : '', // applied when column is sorted
+			hover        : '', // custom css required - a defined bootstrap style may not override other classes
+			// icon class names
+			icons        : '', // add "icon-white" to make them white; this icon class is added to the <i> in the header
+			iconSortNone : 'bootstrap-icon-unsorted', // class name added to icon when column is not sorted
+			iconSortAsc  : 'glyphicon glyphicon-chevron-up', // class name added to icon when column has ascending sort
+			iconSortDesc : 'glyphicon glyphicon-chevron-down', // class name added to icon when column has descending sort
+			filterRow    : '', // filter row class; use widgetOptions.filter_cssFilter for the input/select element
+			footerRow    : '',
+			footerCells  : '',
+			even         : '', // even row zebra striping
+			odd          : ''  // odd row zebra striping
+    };
+
+
+		// call the tablesorter plugin and apply the uitheme widget
+		$("table").tablesorter({
+
+			// this will apply the bootstrap theme if "uitheme" widget is included
+			// the widgetOptions.uitheme is no longer required to be set
+			theme : "bootstrap",
+			widthFixed: true,
+			headerTemplate : '{content} {icon}', // new in v2.7. Needed to add the bootstrap icon!
+
+      //headers: { 2 : { sortInitialOrder: 'asc' } },
+
+			// widget code contained in the jquery.tablesorter.widgets.js file
+			// use the zebra stripe widget if you plan on hiding any rows (filter widget)
+			//widgets : [ "uitheme", "filter", "columns", "zebra" ],
+			widgets : [ "uitheme", "filter", "zebra" ],
+			widgetOptions : {
+				// using the default zebra striping class name, so it actually isn't included in the theme variable above
+				// this is ONLY needed for bootstrap theming if you are using the filter widget, because rows are hidden
+				zebra : ["even", "odd"],
+
+				// class names added to columns when sorted
+				columns: [ "primary", "secondary", "tertiary" ],
+
+				// reset filters button
+				filter_reset : ".reset",
+
+				// extra css class name (string or array) added to the filter element (input or select)
+				filter_cssFilter: "form-control",
+
+        filter_functions : {
+          1 : {
+            //"all" : function(e,n,f,i,$r,c,data) { return true; },
+            "pathogenic" : function(e,n,f,i,$r,c,data) { return /^[pP]athogenic$/.test(e); },
+            "probably pathogenic" : function(e,n,f,i,$r,c,data) { return /^[pP]robably pathogenic$/.test(e); },
+            "affecting drug response" : function(e,n,f,i,$r,c,data) { return /^[aA]ffecting drug response$/.test(e); },
+            "affecting histocompatibility" : function(e,n,f,i,$r,c,data) { return /^[aA]ffecting histocompatibility$/.test(e); },
+
+            "non-pathogenic" : function(e,n,f,i,$r,c,data) { return /^[nN]on-pathogenic$/.test(e); },
+            "probably non-pathogenic" : function(e,n,f,i,$r,c,data) { return /^[pP]robably non-pathogenic$/.test(e); },
+
+            "unknown" : function(e,n,f,i,$r,c,data) { return /^[uU]nknown/.test(e); },
+            "untested" : function(e,n,f,i,$r,c,data) { return /^[uU]tested/.test(e); }
+          }
+        }
+
+				// set the uitheme widget to use the bootstrap theme class names
+				// this is no longer required, if theme is set
+				// ,uitheme : "bootstrap"
+
+			}
+		})
+		.tablesorterPager({
+
+			// target the pager markup - see the HTML block below
+			container: $(".ts-pager"),
+
+			// target the pager page select dropdown - choose a page
+			cssGoto  : ".pagenum",
+
+			// remove rows from the table to speed up the sort of large tables.
+			// setting this to false, only hides the non-visible rows; needed if you plan to add/remove rows with the pager enabled.
+			removeRows: false,
+
+			// output string - default is '{page}/{totalPages}';
+			// possible variables: {page}, {totalPages}, {filteredPages}, {startRow}, {endRow}, {filteredRows} and {totalRows}
+			output: '{startRow} - {endRow} / {filteredRows} ({totalRows})'
+
+		});
+
+  });
+
+
+}
+
 function report_semaphore() {
   if ((!g_genome_ready) || (!g_clinvar_ready)) {
     return;
@@ -279,14 +395,38 @@ function report_semaphore() {
     "255": "other"
   };
 
-  var $table = $('#table');
-  $table.bootstrapTable("removeAll");
+  console.log(">>>> report_semaphore:", g_genome_lines.length);
 
   var data = vcf2clinvar.clinvar_report_json(g_clinvar_lines, g_genome_lines);
   var res = data.results;
 
-  var variants = [];
+  for (var fuck=0; fuck<res.length; fuck++) {
+    if (res[fuck][4].match(/Oculocutaneous_albinism_type_1B/)) {
+      console.log(">>>>fuck:", fuck, res[fuck]);
+    }
+  }
+
+
+
+  var chld = $("#table_body").children();
+  for (var ii=0; ii<chld.length; ii++) {
+    chld[ii].remove();
+  }
+  
+  // I think jquery or whatever else we use (tablesorter?) has a cache
+  // that doesn't update until you tell it explicitely that, yes, in fact
+  // when I deleted the above rows I actually wanted them to be deleted
+  // and not be shadowed so that they magically appear the next time the
+  // table get's displayed.
+  //
+  // Clear the fucking cache.  Christ.
+  //
+  $("#table_body").trigger("addRows").trigger("update").trigger("appendCache").trigger("applyWidgets");
+
+  var rows = [];
+  //var variants = [];
   for (var ii=0; ii<res.length; ii++) {
+    /*
     var v = {
 			"chrom": res[ii][0],
 			"pos": res[ii][1],
@@ -301,11 +441,27 @@ function report_semaphore() {
 			"html_link_name" : "<a href='" + res[ii][8] + "'>" + res[ii][4] + "</a>"
     };
 	  variants.push(v);
+    */
+
+    var s =  [ res[ii][4], _sig_lookup[res[ii][5]], res[ii][6], res[ii][7] ].join("</td><td>") ;
+    rows.push(s);
   }
 
+  var row_str = "<tr><td>" + rows.join("</td></tr><tr><td>") + "</td></tr>";
+
+  var $row = $(row_str);
+
+  var body = $("#table_body");
+  body.append($row).trigger("addRows", [$row, false]);
+
+
+
+  /*
   g_sort_ready = false;
   //g_variants = variants;
 
+  var $table = $('#table');
+  $table.bootstrapTable("removeAll");
   $(function() {
 
     $table.bootstrapTable({data:variants});
@@ -350,12 +506,41 @@ function report_semaphore() {
     }, 500);
 
   });
+  */
 
+  $("#table").find("select").val("pathogenic");
+  $("#table").find("th:contains(Significance)").trigger("search")
+  $("#table").find("th:contains(Allele)").trigger("sort");
 
   remove_spinner();
 }
 
 function on_ready() {
+  init_table();
+
+  /*
+  remove_spinner();
+  return;
+  */
+
+
+  /*
+  console.log("DEBUGGING");
+  remove_spinner();
+  init_table();
+
+  var body = $("#table_body");
+
+  var row = "<tr><td>" + [
+    [ "xname", "sig", "1.23", "hem" ].join("</td><td>"),
+    [ "xname3", "sig2", "0.23", "het" ].join("</td><td>"),
+    [ "xname2", "sig3", "0.3", "hom" ].join("</td><td>")
+  ].join("</td></tr><tr><td>") + "</td></tr>";
+  var $row = $(row);
+  body.append($row);
+  return;
+  */
+
   var cln_wurk = new Worker("js/clinvar-worker.js");
   cln_wurk.addEventListener("message", function(e) {
     var raw_data = new TextDecoder("utf-8").decode(e.data);

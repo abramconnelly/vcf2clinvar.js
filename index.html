@@ -20,9 +20,18 @@
 -->
 
 
+<!--
     <script src='js/bootstrap-table.js'></script>
     <script src='js/bootstrap-table-multiple-sort.js'></script>
     <script src='js/bootstrap-table-filter-control.js'></script>
+-->
+
+    <link rel="stylesheet" href="css/theme.bootstrap_3.css">
+    <link rel="stylesheet" href="css/jquery.tablesorter.pager.css">
+
+    <script src="js/jquery.tablesorter.js"></script>
+    <script src="js/jquery.tablesorter.widgets.js"></script>
+    <script src="js/jquery.tablesorter.pager.js"></script>
 
     <div id="tooltip" class="hidden" style='z-index:100;'> <p><span id="value"></span></p> </div>
 
@@ -53,29 +62,57 @@
 
           <div id="spinner" class="spinner spinner-32px spinner-h-center"></div>
 
+					<div id="main" style="display:none;">
+					<table id='table' class='tablesorter'>
 
-            <div id="main" style="display:none;">
+						<thead id='table_header'>
+							<tr>
+								<th>Name</th>
+                <th class="filter-select filter-exact" data-placeholder="all">Significance</th>
+								<th class="sortInitialOrder-asc" data-sortinitialorder="asc">Allele Freq.</th>
+								<th>Zygosity</th>
+						</thead>
 
-              <table id="table"
-                  data-flat="true"
-                  data-show-columns="true"
-                  data-show-multi-sort="true"
-                  data-search="true"
-                  data-filter-control="true"
-                  data-sort-priority='[{"sortName": "variants.clinical_significance","sortOrder":"desc"},{"sortName":"variants.allele_freq","sortOrder":"desc"}]' >
-                <thead>
-                  <tr>
-                    <th data-field="html_link_name" data-sortable="true">Name</th>
-                    <th id='sig_filter_th' data-field="clinical_significance_descr" data-filter-control="select" data-sortable="true">Significance</th>
-                    <th data-field="allele_freq" data-sortable="true">Allele Freq.</th>
-                    <th data-field="zygosity" data-sortable="true">Zygosity</th>
-                  </tr>
-                </thead>
-              </table>
+						<tfoot id='table_footer'>
+							<tr>
+								<th>Name</th>
+								<th>Significance</th>
+								<th>Allele Freq.</th>
+								<th>Zygosity</th>
+							</tr>
+							<tr>
+								<th colspan="7" class="ts-pager form-inline">
+									<div class="btn-group btn-group-sm" role="group">
+										<button type="button" class="btn btn-default first"><span class="glyphicon glyphicon-step-backward"></span></button>
+										<button type="button" class="btn btn-default prev"><span class="glyphicon glyphicon-backward"></span></button>
+									</div>
+									<span class="pagedisplay"></span>
+									<div class="btn-group btn-group-sm" role="group">
+										<button type="button" class="btn btn-default next"><span class="glyphicon glyphicon-forward"></span></button>
+										<button type="button" class="btn btn-default last"><span class="glyphicon glyphicon-step-forward"></span></button>
+									</div>
+									<select class="form-control input-sm pagesize" title="Select page size">
+										<option selected="selected" value="10">10</option>
+										<option value="20">20</option>
+										<option value="30">30</option>
+										<option value="all">All Rows</option>
+									</select>
+									<select class="form-control input-sm pagenum" title="Select page number"></select>
+								</th>
+							</tr>
+						</tfoot>
 
-            </div>
+						<tbody id='table_body'>
+<!--
+<tr><td>not_specified</td><td>non-pathogenic</td><td>0.9451</td><td>Hom</td></tr><tr><td>not_specified</td><td>non-pathogenic</td><td>0.106</td><td>Het</td></tr><tr><td>not_specified</td><td>non-pathogenic</td><td>0.3179</td><td>Hom</td></tr><tr><td>not_specified</td><td>non-pathogenic</td><td>0.3197</td><td>Hom</td></tr><tr><td>Renal_dysplasia_and_retinal_aplasia</td><td>non-pathogenic</td><td>0.3197</td><td>Hom</td></tr><tr><td>Nephronophthisis</td><td>non-pathogenic</td><td>0.3197</td><td>Hom</td></tr><tr><td>not_specified</td><td>non-pathogenic</td><td>0.5693</td><td>Hom</td></tr><tr><td>not_specified</td><td>non-pathogenic</td><td>0.8433</td><td>Hom</td></tr><tr><td>not_specified</td><td>non-pathogenic</td><td>0.4535</td><td>Het</td></tr><tr><td>Nephronophthisis</td><td>non-pathogenic</td><td>0.4535</td><td>Het</td></tr><tr><td>Renal_dysplasia_and_retinal_aplasia</td><td>non-pathogenic</td><td>0.4535</td><td>Het</td></tr><tr><td>not_specified</td><td>non-pathogenic</td><td>0.08946</td><td>Het</td></tr>
+-->
 
-                    <!-- <th data-field="clinical_significance" data-filter-control="select" data-sortable="true">Significance</th> -->
+						</tbody>
+
+					</table> <!-- table -->
+					</div> <!-- main -->
+
+          </div>
 
         </div> <!-- col-md-11 -->
 
