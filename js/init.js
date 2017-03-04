@@ -29,7 +29,6 @@ function convert_23andme_to_vcf(ref_map, lines) {
     if (lines[i].length==0) { continue; }
     if (lines[i][0] == '#') { continue; }
 
-    //fields = lines[i].split("\t");
     fields = lines[i].replace(/(\r\n|\r|\n)/gm, '').split("\t");
     key = fields[1] + "\t" + fields[2];
 
@@ -38,7 +37,6 @@ function convert_23andme_to_vcf(ref_map, lines) {
     if ((fields[3] == "--") || 
         (fields[3] == "-")) { continue; }
 
-    //var gt = [ fields[3][0], fields[3][1] ];
     var gt = [ fields[3][0] ];
     if (fields[3].length>1) { gt.push(fields[3][1]); }
 
@@ -58,8 +56,6 @@ function convert_23andme_to_vcf(ref_map, lines) {
       gt_idx.push(count);
       count += 1;
     }
-
-    //if (i<10) { console.log("debug", fields, key, ref_map[key], gt, gt_map, gt_idx, alt_str, count); }
 
     var chrom = vcf2clinvar.CHROM_MAP[fields[1]];
     if (alt_str.length==0) { alt_str = "."; }
@@ -85,6 +81,10 @@ function convert_23andme_to_vcf(ref_map, lines) {
   return vcf_lines;
 }
 
+// Notes: (and TODO)
+// chromosomes 25 are 'PARA'
+// and I think 26 is chrM
+//
 function convert_ancestrydna_to_vcf(ref_map, lines) {
   var fields = [];
   var key = "";
@@ -111,9 +111,7 @@ function convert_ancestrydna_to_vcf(ref_map, lines) {
         (fields[4] == "-")  ||
         (fields[4] == ".")) { continue; }
 
-    //var gt = [ fields[3][0], fields[3][1] ];
     var gt = [ fields[3], fields[4] ];
-    //if (fields[3].length>1) { gt.push(fields[3][1]); }
 
     var gt_map = {};
     gt_map[ ref_map[key] ] = 0;
@@ -132,14 +130,21 @@ function convert_ancestrydna_to_vcf(ref_map, lines) {
       count += 1;
     }
 
-    //if (i<10) { console.log("debug", fields, key, ref_map[key], gt, gt_map, gt_idx, alt_str, count); }
-
     var chrom = vcf2clinvar.CHROM_MAP[fields[1]];
+
+    //FOR NOW
+    //ignore 25, map 26 to chrM
+    //
+
+    //if (fields[1] == "25") { chrom = "PARA"; }
+    if (fields[1] == "25") { continue; }
+    if (fields[1] == "26") { chrom = "chrM"; }
+
+
     if (alt_str.length==0) { alt_str = "."; }
 
     if (key in ref_map) {
       vcf_lines.push(
-          //fields[1] +                 // chrom
           chrom +                 // chrom
           "\t" + fields[2] +          // pos
           "\t" + fields[0] +          // id
@@ -153,16 +158,11 @@ function convert_ancestrydna_to_vcf(ref_map, lines) {
     }
   }
 
-  //for (var i=0; i<10; i++) { console.log(i, vcf_lines[i]); }
-
   return vcf_lines;
 }
 
 function load_file(e) {
   var data = e.target.result;
-  //var data_str = data;
-  //var data_str = atob(data);
-
   var data_parts = data.split(",");
 
   console.log(">>>", data_parts[0]);
@@ -179,10 +179,6 @@ function load_file(e) {
     for (var ii=0; ii<data_str.length; ii++) {
       uInt8Array[ii] = data_str.charCodeAt(ii);
     }
-
-    //var uInt8Array = new Uint8Array(data_parts[1]);
-    //var uInt8Array = new Uint8Array(data_str);
-    //console.log("cp0", uInt8Array.length);
 
     var gunzip = new Zlib.Gunzip(uInt8Array);
     var unpacked_uInt8Array = gunzip.decompress();
@@ -203,6 +199,8 @@ function load_file(e) {
       uInt8Array[ii] = data_str.charCodeAt(ii);
     }
 
+    // Take the first file in the zip archive
+    //
     var unzip = new Zlib.Unzip(uInt8Array);
     var filenames = unzip.getFilenames();
     var unpacked_uInt8Array = unzip.decompress(filenames[0]);
@@ -219,13 +217,6 @@ function load_file(e) {
   var data_lines = data_str.split("\n");
   if (data_lines.length==0) { return; }
   if (data_lines[0].search(/##fileformat=VCF/)>=0) {
-
-    for (var fuck=0; fuck<data_lines.length; fuck++) {
-      if (data_lines[fuck].match(/Oculocutaneous_albinism_type_1B/)) {
-        console.log(">>>>fuck:", fuck, data_lines[fuck]);
-      }
-    }
-
     g_genome_lines = data_lines;
     report_semaphore();
     return;
@@ -258,7 +249,6 @@ function process_genome_upload() {
   console.log(fn);
 
   var reader = new FileReader();
-  //reader.onload = function(x) { console.log("file ul, got:", x.target.result); };
   reader.onload = load_file;
   reader.readAsDataURL(fn);
 }
@@ -378,10 +368,16 @@ function init_table() {
 }
 
 function report_semaphore() {
+
+  // Make sure our genome is ready and clinvar data is
+  // ready.
+  //
   if ((!g_genome_ready) || (!g_clinvar_ready)) {
     return;
   }
 
+  // Clinvar significance code mapping
+  //
   var _sig_lookup = {
     "" : "all",
     "0": "unknown",
@@ -395,54 +391,29 @@ function report_semaphore() {
     "255": "other"
   };
 
-  console.log(">>>> report_semaphore:", g_genome_lines.length);
-
+  // Run the report
+  //
   var data = vcf2clinvar.clinvar_report_json(g_clinvar_lines, g_genome_lines);
   var res = data.results;
 
-  for (var fuck=0; fuck<res.length; fuck++) {
-    if (res[fuck][4].match(/Oculocutaneous_albinism_type_1B/)) {
-      console.log(">>>>fuck:", fuck, res[fuck]);
-    }
-  }
-
-
-
+  // Remove rows in the table.
+  // Be careful, more work needs to be done,
+  // see below
+  //
   var chld = $("#table_body").children();
   for (var ii=0; ii<chld.length; ii++) {
     chld[ii].remove();
   }
   
   // I think jquery or whatever else we use (tablesorter?) has a cache
-  // that doesn't update until you tell it explicitely that, yes, in fact
-  // when I deleted the above rows I actually wanted them to be deleted
-  // and not be shadowed so that they magically appear the next time the
-  // table get's displayed.
+  // that doesn't update until you tell it explicitely to.
   //
-  // Clear the fucking cache.  Christ.
+  // Clear the cache.
   //
   $("#table_body").trigger("addRows").trigger("update").trigger("appendCache").trigger("applyWidgets");
 
   var rows = [];
-  //var variants = [];
   for (var ii=0; ii<res.length; ii++) {
-    /*
-    var v = {
-			"chrom": res[ii][0],
-			"pos": res[ii][1],
-			"ref_allele": res[ii][2],
-			"alt_allele": res[ii][3],
-			"name": res[ii][4],
-			"clinical_significance": res[ii][5],
-			"clinical_significance_descr": _sig_lookup[res[ii][5]],
-			"allele_freq": res[ii][6],
-			"zygosity": res[ii][7],
-			"acc_url": res[ii][8],
-			"html_link_name" : "<a href='" + res[ii][8] + "'>" + res[ii][4] + "</a>"
-    };
-	  variants.push(v);
-    */
-
     var s =  [ res[ii][4], _sig_lookup[res[ii][5]], res[ii][6], res[ii][7] ].join("</td><td>") ;
     rows.push(s);
   }
@@ -454,62 +425,16 @@ function report_semaphore() {
   var body = $("#table_body");
   body.append($row).trigger("addRows", [$row, false]);
 
-
-
-  /*
-  g_sort_ready = false;
-  //g_variants = variants;
-
-  var $table = $('#table');
-  $table.bootstrapTable("removeAll");
-  $(function() {
-
-    $table.bootstrapTable({data:variants});
-    $table.bootstrapTable("load", variants);
-
-    //$table.bootstrapTable({data:g_variants});
-    //$table.bootstrapTable("load", g_variants);
-
-    // Do the default filter
-    //
-    $table.bootstrapTable('filterBy', {clinical_significance_descr: ["pathogenic"]});
-
-    // kind of hacky, but seems to work...set the displayed default filter to 'pathogenic'
-    // blech, really tied to the bootstrap version.
-    //
-    //$(".clinical_significance_descr").val("pathogenic");
-    //
-    $(".bootstrap-table-filter-control-clinical_significance_descr").val("pathogenic");
-
-
-    // finally sort by allele_freq.
-    // Again, more hamfisted bootstrap table version specific cludgery to sort
-    // tables initially.
-    //
-    //$("th[data-field='allele_freq']").children(".sortable").click().click();
-    //$("th[data-field='allele_freq'] .sortable").click().click();
-    //$("th[data-field='allele_freq'] .sortable").click();
-
-
-    // I'm always fighting with the bootstrap table...give it some time
-    // to 'really' load before trying to sort on the oclumn you want.
-    //
-    setTimeout(function() {
-
-      $("th[data-field='allele_freq'] .sortable").click();
-
-      if (!g_first_sort) {
-        $("th[data-field='allele_freq'] .sortable").click();
-      }
-
-      g_first_sort = false;
-    }, 500);
-
-  });
-  */
-
+  // Do the default filter and sorts
+  //
   $("#table").find("select").val("pathogenic");
-  $("#table").find("th:contains(Significance)").trigger("search")
+  $("#table").find("th:contains(Significance)").trigger("search");
+
+  // This needs work...
+  // We need to do this more intelligently:
+  // https://mottie.github.io/tablesorter/docs/example-trigger-sort.html
+  // https://mottie.github.io/tablesorter/docs/example-triggers.html
+  //
   $("#table").find("th:contains(Allele)").trigger("sort");
 
   remove_spinner();
@@ -518,29 +443,12 @@ function report_semaphore() {
 function on_ready() {
   init_table();
 
-  /*
-  remove_spinner();
-  return;
-  */
+  //TODO: load this staggered or only on user initiation
+  //
 
-
-  /*
-  console.log("DEBUGGING");
-  remove_spinner();
-  init_table();
-
-  var body = $("#table_body");
-
-  var row = "<tr><td>" + [
-    [ "xname", "sig", "1.23", "hem" ].join("</td><td>"),
-    [ "xname3", "sig2", "0.23", "het" ].join("</td><td>"),
-    [ "xname2", "sig3", "0.3", "hom" ].join("</td><td>")
-  ].join("</td></tr><tr><td>") + "</td></tr>";
-  var $row = $(row);
-  body.append($row);
-  return;
-  */
-
+  // Load the ClinVar (stripped down and compressed) VCF
+  // as a background process.
+  //
   var cln_wurk = new Worker("js/clinvar-worker.js");
   cln_wurk.addEventListener("message", function(e) {
     var raw_data = new TextDecoder("utf-8").decode(e.data);
@@ -552,6 +460,8 @@ function on_ready() {
     console.log("clinvar:", g_clinvar_lines.length, "lines loaded");
   });
 
+  // Load the example VCF as a background process
+  //
   var example_wurk = new Worker("js/example-vcf-worker.js");
   example_wurk.addEventListener("message", function(e) {
     var raw_data = new TextDecoder("utf-8").decode(e.data);
@@ -564,6 +474,9 @@ function on_ready() {
     console.log("example:", g_genome_lines.length, "lines loaded");
   });
 
+  // Load the reference positions for 23andMe as a
+  // background process.
+  //
   var ttam_ref_wurk = new Worker("js/ref-b37-worker.js");
   ttam_ref_wurk.addEventListener("message", function(e) {
     var raw_data = new TextDecoder("utf-8").decode(e.data);
@@ -573,6 +486,9 @@ function on_ready() {
   });
   ttam_ref_wurk.postMessage("../data/23andme_reference_b37.txt.gz");
 
+  // Load the reference positions for AncestryDNA as a
+  // background process.
+  //
   var adna_ref_wurk = new Worker("js/ref-b37-worker.js");
   adna_ref_wurk.addEventListener("message", function(e) {
     var raw_data = new TextDecoder("utf-8").decode(e.data);
