@@ -264,6 +264,7 @@ var g_variants = [];
 
 function init_table() {
 
+  // https://mottie.github.io/tablesorter/docs/#Examples
   // lets try jquery tablesorter
   //
   $(function() {
