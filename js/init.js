@@ -164,11 +164,56 @@ function load_file(e) {
   //var data_str = atob(data);
 
   var data_parts = data.split(",");
+
+  console.log(">>>", data_parts[0]);
+
   var data_str = atob(data_parts[1]);
 
-  console.log("got:", data_str.length);
+  if (data_parts[0] == "data:application/gzip;base64") {
 
-  //g_genome_lines = data_str.split("\n");
+    console.log("... gunzipping");
+
+    // contortions to get it into a format for gunzip 
+    //
+    var uInt8Array = new Uint8Array(new ArrayBuffer(data_str.length));
+    for (var ii=0; ii<data_str.length; ii++) {
+      uInt8Array[ii] = data_str.charCodeAt(ii);
+    }
+
+    //var uInt8Array = new Uint8Array(data_parts[1]);
+    //var uInt8Array = new Uint8Array(data_str);
+    //console.log("cp0", uInt8Array.length);
+
+    var gunzip = new Zlib.Gunzip(uInt8Array);
+    var unpacked_uInt8Array = gunzip.decompress();
+    data_str = new TextDecoder("utf-8").decode(unpacked_uInt8Array);
+
+    var xx = data_str.slice(0,100);
+    console.log(">>>", xx.length, xx);
+  }
+
+  else if (data_parts[0] == "data:application/zip;base64") {
+
+    console.log("... unzipping");
+
+    // contortions to get it into a format for gunzip 
+    //
+    var uInt8Array = new Uint8Array(new ArrayBuffer(data_str.length));
+    for (var ii=0; ii<data_str.length; ii++) {
+      uInt8Array[ii] = data_str.charCodeAt(ii);
+    }
+
+    var unzip = new Zlib.Unzip(uInt8Array);
+    var filenames = unzip.getFilenames();
+    var unpacked_uInt8Array = unzip.decompress(filenames[0]);
+    data_str = new TextDecoder("utf-8").decode(unpacked_uInt8Array);
+
+    var xx = data_str.slice(0,100);
+    console.log(">>>", xx.length, xx);
+
+
+  }
+
   var data_lines = data_str.split("\n");
   if (data_lines.length==0) { return; }
   if (data_lines[0].search(/##fileformat=VCF/)>=0) {
@@ -180,14 +225,8 @@ function load_file(e) {
   if (data_lines[0].search(/23and[mM]e/)>=0) {
     console.log(">>> 23andme data?");
 
-    //for (var i=0; i<10; i++) { console.log("inp:", data_lines[i]); }
-
     var vcf_lines = convert_23andme_to_vcf(g_23andme_ref_b37, data_lines);
-
-    //for (var i=0; i<5; i++) { console.log(vcf_lines[i]); }
-    //for (var i=(vcf_lines.length-5); i<vcf_lines.length; i++) { console.log(vcf_lines[i]); }
-
-
+    report_semaphore();
     return;
   }
 
@@ -195,14 +234,9 @@ function load_file(e) {
     console.log(">>> Ancestry DNA?");
 
     var vcf_lines = convert_ancestrydna_to_vcf(g_ancestrydna_ref_b37, data_lines);
-
-    for (var i=0; i<5; i++) { console.log(vcf_lines[i]); }
-    for (var i=(vcf_lines.length-5); i<vcf_lines.length; i++) { console.log(vcf_lines[i]); }
-
-
+    report_semaphore();
     return;
   }
-
 
   console.log("unknown format");
 }
@@ -224,6 +258,9 @@ function remove_spinner() {
 
 }
 
+var g_first_sort = true;
+var g_variants = [];
+
 function report_semaphore() {
   if ((!g_genome_ready) || (!g_clinvar_ready)) {
     return;
@@ -242,20 +279,11 @@ function report_semaphore() {
     "255": "other"
   };
 
-
-  /*
-  var res = clinvar_report(g_clinvar_lines, g_genome_lines);
-  console.log("result:", res.length, "resulting lines");
-  for (var ii=0; ii<res.length; ii++) {
-    console.log(res[ii]);
-    if (ii>10) { break; }
-  }
-  */
+  var $table = $('#table');
+  $table.bootstrapTable("removeAll");
 
   var data = vcf2clinvar.clinvar_report_json(g_clinvar_lines, g_genome_lines);
   var res = data.results;
-
-  console.log(data);
 
   var variants = [];
   for (var ii=0; ii<res.length; ii++) {
@@ -273,27 +301,56 @@ function report_semaphore() {
 			"html_link_name" : "<a href='" + res[ii][8] + "'>" + res[ii][4] + "</a>"
     };
 	  variants.push(v);
-
-    //if (ii>10) { break; }
   }
 
-  var $table = $('table');
+  g_sort_ready = false;
+  //g_variants = variants;
+
   $(function() {
+
     $table.bootstrapTable({data:variants});
+    $table.bootstrapTable("load", variants);
+
+    //$table.bootstrapTable({data:g_variants});
+    //$table.bootstrapTable("load", g_variants);
 
     // Do the default filter
     //
     $table.bootstrapTable('filterBy', {clinical_significance_descr: ["pathogenic"]});
 
     // kind of hacky, but seems to work...set the displayed default filter to 'pathogenic'
+    // blech, really tied to the bootstrap version.
     //
-    $(".clinical_significance_descr").val("pathogenic");
+    //$(".clinical_significance_descr").val("pathogenic");
+    //
+    $(".bootstrap-table-filter-control-clinical_significance_descr").val("pathogenic");
 
-    // finally sort by allele_freq
+
+    // finally sort by allele_freq.
+    // Again, more hamfisted bootstrap table version specific cludgery to sort
+    // tables initially.
     //
-    $("th[data-field='allele_freq']").children(".sortable").click().click();
+    //$("th[data-field='allele_freq']").children(".sortable").click().click();
+    //$("th[data-field='allele_freq'] .sortable").click().click();
+    //$("th[data-field='allele_freq'] .sortable").click();
+
+
+    // I'm always fighting with the bootstrap table...give it some time
+    // to 'really' load before trying to sort on the oclumn you want.
+    //
+    setTimeout(function() {
+
+      $("th[data-field='allele_freq'] .sortable").click();
+
+      if (!g_first_sort) {
+        $("th[data-field='allele_freq'] .sortable").click();
+      }
+
+      g_first_sort = false;
+    }, 500);
 
   });
+
 
   remove_spinner();
 }

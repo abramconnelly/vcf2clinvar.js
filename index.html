@@ -27,6 +27,7 @@
     <div id="tooltip" class="hidden" style='z-index:100;'> <p><span id="value"></span></p> </div>
 
     <script src='js/gunzip.min.js'></script>
+    <script src='js/unzip.min.js'></script>
     <script src='js/vcf2clinvar.js'></script>
     <script src='js/init.js'></script>
   </head>
@@ -48,11 +49,13 @@
         </div>
 
 
-        <div class='col-xs-10'>
+        <div id='main_div' class='col-xs-10'>
 
           <div id="spinner" class="spinner spinner-32px spinner-h-center"></div>
 
+
             <div id="main" style="display:none;">
+
               <table id="table"
                   data-flat="true"
                   data-show-columns="true"
@@ -63,14 +66,16 @@
                 <thead>
                   <tr>
                     <th data-field="html_link_name" data-sortable="true">Name</th>
-                    <!-- <th data-field="clinical_significance" data-filter-control="select" data-sortable="true">Significance</th> -->
                     <th id='sig_filter_th' data-field="clinical_significance_descr" data-filter-control="select" data-sortable="true">Significance</th>
                     <th data-field="allele_freq" data-sortable="true">Allele Freq.</th>
                     <th data-field="zygosity" data-sortable="true">Zygosity</th>
                   </tr>
                 </thead>
               </table>
+
             </div>
+
+                    <!-- <th data-field="clinical_significance" data-filter-control="select" data-sortable="true">Significance</th> -->
 
         </div> <!-- col-md-11 -->
 
