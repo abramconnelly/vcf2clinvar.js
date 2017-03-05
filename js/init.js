@@ -1,13 +1,23 @@
 console.log("in init");
 
 var g_clinvar_ready = false;
+var g_clinvar_queued = false;
 var g_genome_ready = false;
 
 var g_clinvar_lines = undefined;
 var g_genome_lines = undefined;
+var g_data_lines = undefined;
 
-var g_23andme_ref_b37 = {};
-var g_ancestrydna_ref_b37 = {};
+var g_ref_23andme_ready  = false;
+var g_ref_23andme_queued = false;
+
+var g_ref_ancestrydna_ready  = false;
+var g_ref_ancestrydna_queued = false;
+
+var g_ref_23andme_b37 = {};
+var g_ref_ancestrydna_b37 = {};
+
+var g_process_data = false;
 
 function load_gt_reference(ref_map, ref_lines) {
   for (var i=0; i<ref_lines.length; i++) {
@@ -15,6 +25,17 @@ function load_gt_reference(ref_map, ref_lines) {
     ref_map[ field[0] + "\t" + field[1] ] = field[2];
   }
 }
+
+function on_ready() {
+  init_table();
+}
+
+//                            _          
+//  __ ___ _ ___ _____ _ _ __(_)___ _ _  
+// / _/ _ \ ' \ V / -_) '_(_-< / _ \ ' \ 
+// \__\___/_||_\_/\___|_| /__/_\___/_||_|
+//                                       
+
 
 function convert_23andme_to_vcf(ref_map, lines) {
   var fields = [];
@@ -161,7 +182,120 @@ function convert_ancestrydna_to_vcf(ref_map, lines) {
   return vcf_lines;
 }
 
-function load_file(e) {
+//  _              _ _           
+// | |___  __ _ __| (_)_ _  __ _ 
+// | / _ \/ _` / _` | | ' \/ _` |
+// |_\___/\__,_\__,_|_|_||_\__, |
+//                         |___/ 
+
+function auto_io(data) {
+  var data_parts = data.split(",");
+
+  console.log(">>>", data_parts[0]);
+
+  var data_str = atob(data_parts[1]);
+
+  if (data_parts[0] == "data:application/gzip;base64") {
+
+    console.log("... gunzipping");
+
+    // contortions to get it into a format for gunzip 
+    //
+    var uInt8Array = new Uint8Array(new ArrayBuffer(data_str.length));
+    for (var ii=0; ii<data_str.length; ii++) {
+      uInt8Array[ii] = data_str.charCodeAt(ii);
+    }
+
+    var gunzip = new Zlib.Gunzip(uInt8Array);
+    var unpacked_uInt8Array = gunzip.decompress();
+    data_str = new TextDecoder("utf-8").decode(unpacked_uInt8Array);
+
+    var xx = data_str.slice(0,100);
+    console.log(">>>", xx.length, xx);
+  }
+
+  else if (data_parts[0] == "data:application/zip;base64") {
+
+    console.log("... unzipping");
+
+    // contortions to get it into a format for gunzip 
+    //
+    var uInt8Array = new Uint8Array(new ArrayBuffer(data_str.length));
+    for (var ii=0; ii<data_str.length; ii++) {
+      uInt8Array[ii] = data_str.charCodeAt(ii);
+    }
+
+    // Take the first file in the zip archive
+    //
+    var unzip = new Zlib.Unzip(uInt8Array);
+    var filenames = unzip.getFilenames();
+    var unpacked_uInt8Array = unzip.decompress(filenames[0]);
+    data_str = new TextDecoder("utf-8").decode(unpacked_uInt8Array);
+
+    var xx = data_str.slice(0,100);
+    console.log(">>>", xx.length, xx);
+
+  }
+
+  return data_str;
+}
+
+function load_clinvar_file(e) {
+  var data_str = auto_io(e.target.result);
+  g_clinvar_lines = data_str.split("\n");
+  g_clinvar_ready = true;
+  g_clinvar_queued = false;
+  report_semaphore();
+
+  if (g_clinvar_lines.length>2) {
+    $("#clinvar_vcf_info").text( g_clinvar_lines[1] );
+  }
+  else {
+    $("#clinvar_vcf_info").text( $("#clinvar_upload").val() );
+  }
+
+}
+
+function load_ref_23andme_file(e) {
+  var data_str = auto_io(e.target.result);
+  var raw_lines = data_str.split("\n");
+  g_ref_23andme_b37 = {};
+  load_gt_reference(g_ref_23andme_b37, raw_lines);
+
+  g_ref_23andme_ready = true;
+  g_ref_23andme_queued = false;
+
+
+  data_23andme_semaphore();
+
+  $("#ref_23andme_info").text( $("#ref_23andme_upload").val() );
+
+}
+
+function load_ref_ancestrydna_file(e) {
+  var data_str = auto_io(e.target.result);
+  var raw_lines = data_str.split("\n");
+  g_ref_ancestrydna_b37 = {};
+  load_gt_reference(g_ref_ancestrydna_b37, raw_lines);
+
+  g_ref_ancestrydna_ready = true;
+  g_ref_ancestrydna_queued = false;
+
+  data_ancestrydna_semaphore();
+
+  $("#ref_ancestrydna_info").text( $("#ref_ancestrydna_upload").val() );
+
+}
+
+function load_genome_file(e) {
+
+  var data_str = auto_io(e.target.result);
+
+  //DEBUG
+  console.log("load_genome_file...");
+  console.log("got...", data_str.slice(0, 100));
+
+  /*
   var data = e.target.result;
   var data_parts = data.split(",");
 
@@ -211,13 +345,19 @@ function load_file(e) {
 
 
   }
+  */
 
   g_genome_lines = undefined;
 
   var data_lines = data_str.split("\n");
   if (data_lines.length==0) { return; }
   if (data_lines[0].search(/##fileformat=VCF/)>=0) {
+
+    console.log("vcf genome file...");
+
     g_genome_lines = data_lines;
+    g_genome_ready = true;
+
     report_semaphore();
     return;
   }
@@ -225,42 +365,137 @@ function load_file(e) {
   if (data_lines[0].search(/23and[mM]e/)>=0) {
     console.log(">>> 23andme data?");
 
-    //var vcf_lines = convert_23andme_to_vcf(g_23andme_ref_b37, data_lines);
-    g_genome_lines = convert_23andme_to_vcf(g_23andme_ref_b37, data_lines);
-    report_semaphore();
+    g_data_lines = data_lines;
+    g_process_data = true;
+
+    data_23andme_semaphore();
+
+    //g_genome_lines = convert_23andme_to_vcf(g_ref_23andme_b37, data_lines);
+    //report_semaphore();
     return;
   }
 
   if (data_lines[0].search(/Ancestry[dD][nN][aA]/)>=0) {
     console.log(">>> Ancestry DNA?");
 
-    //var vcf_lines = convert_ancestrydna_to_vcf(g_ancestrydna_ref_b37, data_lines);
-    g_genome_lines = convert_ancestrydna_to_vcf(g_ancestrydna_ref_b37, data_lines);
-    report_semaphore();
+    g_data_lines = data_lines;
+    g_process_data = true;
+    data_ancestrydna_semaphore();
+
+    //g_genome_lines = convert_ancestrydna_to_vcf(g_ref_ancestrydna_b37, data_lines);
+    //report_semaphore();
     return;
   }
 
   console.log("unknown format");
 }
 
-function process_genome_upload() {
-  var inp_id = "genome_upload";
+//                                         _              _ 
+//  _ __ _ _ ___  __ ___ ______  _  _ _ __| |___  __ _ __| |
+// | '_ \ '_/ _ \/ _/ -_|_-<_-< | || | '_ \ / _ \/ _` / _` |
+// | .__/_| \___/\__\___/__/__/  \_,_| .__/_\___/\__,_\__,_|
+// |_|                               |_|                    
+
+
+function queue_example_genome() {
+  start_spinner();
+  setTimeout(function() {
+    load_default_clinvar();
+    load_example_vcf();
+  }, 1);
+}
+
+function queue_clinvar(inp_id) {
+  start_spinner();
+  setTimeout(function() { process_clinvar_upload(inp_id); }, 1);
+}
+
+
+function process_clinvar_upload() {
+  var inp_id = "clinvar_upload";
   var fn = document.getElementById(inp_id).files[0];
   console.log(fn);
 
+  g_clinvar_ready  = false;
+  g_clinvar_queued = true;
+
   var reader = new FileReader();
-  reader.onload = load_file;
+  reader.onload = load_clinvar_file;
+  reader.readAsDataURL(fn);
+
+}
+
+function process_ref_23andme_upload() {
+  var inp_id = "ref_23andme_upload";
+  var fn = document.getElementById(inp_id).files[0];
+  console.log(fn);
+
+  g_ref_23andme_ready = false;
+
+  var reader = new FileReader();
+  reader.onload = load_ref_23andme_file;
+  reader.readAsDataURL(fn);
+
+}
+
+function process_ref_ancestrydna_upload() {
+  var inp_id = "ref_ancestrydna_upload";
+  var fn = document.getElementById(inp_id).files[0];
+  console.log(fn);
+
+  g_ref_ancestrydna_ready = false;
+
+  var reader = new FileReader();
+  reader.onload = load_ref_ancestrydna_file;
+  reader.readAsDataURL(fn);
+
+}
+
+function queue_genome(inp_id) {
+
+  console.log("... queueing genome");
+
+  start_spinner();
+  setTimeout(function() { process_genome_upload(inp_id); }, 1);
+}
+
+function process_genome_upload(inp_id) {
+  //var inp_id = "genome_upload";
+  var fn = document.getElementById(inp_id).files[0];
+  console.log(">>>>>>>>>>>>", fn);
+
+  g_genome_ready = false;
+  if (!g_clinvar_ready) {
+    if (!g_clinvar_queued) {
+      load_default_clinvar();
+    }
+  }
+
+  var reader = new FileReader();
+  reader.onload = load_genome_file;
   reader.readAsDataURL(fn);
 }
 
-function remove_spinner() {
-  $("#spinner").css("display", "none");
-  $("#main").css("display", "inline");
+function start_spinner() {
+  $("#welcome_text").css("display", "none");
+  $("#processing").css("display", "inline");
+  $("#main").css("display", "none");
+}
 
+function remove_spinner() {
+  $("#processing").css("display", "none");
+  $("#main").css("display", "inline");
 }
 
 var g_first_sort = true;
 var g_variants = [];
+
+//  _      _ _   
+// (_)_ _ (_) |_ 
+// | | ' \| |  _|
+// |_|_||_|_|\__|
+//               
+
 
 function init_table() {
 
@@ -370,6 +605,13 @@ function init_table() {
 
 }
 
+//                     _ _           _   _          
+//  __ ___  ___ _ _ __| (_)_ _  __ _| |_(_)___ _ _  
+// / _/ _ \/ _ \ '_/ _` | | ' \/ _` |  _| / _ \ ' \ 
+// \__\___/\___/_| \__,_|_|_||_\__,_|\__|_\___/_||_|
+//                                                  
+
+
 function report_semaphore() {
 
   // Make sure our genome is ready and clinvar data is
@@ -447,11 +689,73 @@ function report_semaphore() {
   remove_spinner();
 }
 
-function on_ready() {
-  init_table();
+function data_23andme_semaphore() {
 
-  //TODO: load this staggered or only on user initiation
-  //
+  console.log("data_23andme_semaphore");
+
+  if (g_process_data) {
+
+    console.log("data_23andme_semaphore ... still needs processing");
+
+    if ((typeof g_data_lines !== "undefined") && (g_ref_23andme_ready)) {
+
+      console.log("data_23andme_semaphore ... processing");
+
+      g_genome_lines = convert_23andme_to_vcf(g_ref_23andme_b37, g_data_lines);
+      g_genome_ready = true;
+
+      report_semaphore();
+
+      g_process_data = false;
+    }
+
+    else if (!g_ref_23andme_ready) { load_default_ref_23andme(); }
+
+  }
+
+}
+
+function data_ancestrydna_semaphore() {
+
+  console.log("data_ancestrydna_semaphore");
+
+  if (g_process_data) {
+
+    console.log("data_ancestrydna_semaphore ... still needs processing");
+
+    if ((typeof g_data_lines !== "undefined") && (g_ref_ancestrydna_ready)) {
+
+      console.log("data_ancestrydna_semaphore ... processing");
+
+      g_genome_lines = convert_ancestrydna_to_vcf(g_ref_ancestrydna_b37, g_data_lines);
+      g_genome_ready = true;
+
+      report_semaphore();
+
+      g_process_data = false;
+
+    }
+
+    else if (!g_ref_ancestrydna_ready) { load_default_ref_ancestrydna(); }
+
+  }
+
+}
+
+
+
+//     _      __           _ _     _              _ 
+//  __| |___ / _|__ _ _  _| | |_  | |___  __ _ __| |
+// / _` / -_)  _/ _` | || | |  _| | / _ \/ _` / _` |
+// \__,_\___|_| \__,_|\_,_|_|\__| |_\___/\__,_\__,_|
+//                                                  
+
+
+function load_default_clinvar() {
+  g_clinvar_ready = false;
+  g_clinvar_queued = true;
+
+  console.log("loading default clinvar");
 
   // Load the ClinVar (stripped down and compressed) VCF
   // as a background process.
@@ -462,10 +766,64 @@ function on_ready() {
     g_clinvar_lines = raw_data.split("\n");
 
     g_clinvar_ready = true;
+    g_clinvar_queued = false;
 
     report_semaphore();
     console.log("clinvar:", g_clinvar_lines.length, "lines loaded");
   });
+}
+
+function load_default_ref_23andme() {
+
+  g_ref_23andme_ready = false;
+  g_ref_23andme_queued = true;
+
+  // Load the reference positions for 23andMe as a
+  // background process.
+  //
+  var ttam_ref_wurk = new Worker("js/ref-b37-worker.js");
+  ttam_ref_wurk.addEventListener("message", function(e) {
+    var raw_data = new TextDecoder("utf-8").decode(e.data);
+    var raw_lines = raw_data.split("\n");
+    load_gt_reference(g_ref_23andme_b37, raw_lines);
+
+    g_ref_23andme_ready = true;
+    g_ref_23andme_queued = false;
+
+    console.log("g_ref_23andme loaded");
+    data_23andme_semaphore();
+  });
+  ttam_ref_wurk.postMessage("../data/23andme_reference_b37.txt.gz");
+}
+
+function load_default_ref_ancestrydna() {
+
+  g_ref_ancestrydna_ready = false;
+  g_ref_ancestrydna_queued = true;
+
+
+  // Load the reference positions for AncestryDNA as a
+  // background process.
+  //
+  var adna_ref_wurk = new Worker("js/ref-b37-worker.js");
+  adna_ref_wurk.addEventListener("message", function(e) {
+    var raw_data = new TextDecoder("utf-8").decode(e.data);
+    var raw_lines = raw_data.split("\n");
+    load_gt_reference(g_ref_ancestrydna_b37, raw_lines);
+
+    g_ref_ancestrydna_ready = true;
+    g_ref_ancestrydna_queued = false;
+
+    console.log("g_ref_ancestrydna loaded");
+
+    data_ancestrydna_semaphore();
+  });
+  adna_ref_wurk.postMessage("../data/ancestrydna_reference_b37.txt.gz");
+}
+
+function load_example_vcf() {
+
+  g_genome_ready = false;
 
   // Load the example VCF as a background process
   //
@@ -480,29 +838,6 @@ function on_ready() {
 
     console.log("example:", g_genome_lines.length, "lines loaded");
   });
-
-  // Load the reference positions for 23andMe as a
-  // background process.
-  //
-  var ttam_ref_wurk = new Worker("js/ref-b37-worker.js");
-  ttam_ref_wurk.addEventListener("message", function(e) {
-    var raw_data = new TextDecoder("utf-8").decode(e.data);
-    var raw_lines = raw_data.split("\n");
-    load_gt_reference(g_23andme_ref_b37, raw_lines);
-    console.log("g_23andme_ref loaded");
-  });
-  ttam_ref_wurk.postMessage("../data/23andme_reference_b37.txt.gz");
-
-  // Load the reference positions for AncestryDNA as a
-  // background process.
-  //
-  var adna_ref_wurk = new Worker("js/ref-b37-worker.js");
-  adna_ref_wurk.addEventListener("message", function(e) {
-    var raw_data = new TextDecoder("utf-8").decode(e.data);
-    var raw_lines = raw_data.split("\n");
-    load_gt_reference(g_ancestrydna_ref_b37, raw_lines);
-    console.log("g_ancestrydna_ref loaded");
-  });
-  adna_ref_wurk.postMessage("../data/ancestrydna_reference_b37.txt.gz");
-
 }
+
+

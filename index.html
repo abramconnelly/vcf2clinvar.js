@@ -12,20 +12,6 @@
     <script src="js/jquery.min.js"></script>
     <script src="js/bootstrap.js"></script>
 
-
-<!--
-    <link rel="stylesheet" href="css/styles.css">
-    <link rel="stylesheet" href="css/pygment_trac.css">
-    <meta name="viewport" content="width=device-width">
--->
-
-
-<!--
-    <script src='js/bootstrap-table.js'></script>
-    <script src='js/bootstrap-table-multiple-sort.js'></script>
-    <script src='js/bootstrap-table-filter-control.js'></script>
--->
-
     <link rel="stylesheet" href="css/theme.bootstrap_3.css">
     <link rel="stylesheet" href="css/jquery.tablesorter.pager.css">
 
@@ -39,28 +25,359 @@
     <script src='js/unzip.min.js'></script>
     <script src='js/vcf2clinvar.js'></script>
     <script src='js/init.js'></script>
+
+    <!-- http://stackoverflow.com/questions/572768/styling-an-input-type-file-button/25825731#25825731 -->
+<style>
+
+input[type="file"] {
+    display: none;
+}
+
+.custom-file-upload {
+    /* border: 1px solid #ccc; */
+    display: inline-block;
+    /* padding: 6px 12px; */
+    cursor: pointer;
+    /* background:#5bc0de; #d9edf7; */
+}
+
+.custom-file-upload2 {
+    border: 1px solid #ccc;
+    display: inline-block;
+    padding: 6px 12px;
+    cursor: pointer;
+}
+
+</style>
+
   </head>
   <body>
+
 
     <div class='container-fluid'>
 
       <div class='row'>
+        <div class='col-xs-2'></div>
 
-        <div class='col-xs-2'>
-          <h1>vcf2clinvar</h1>
-          <b>Upload VCF Genome:</b> <input type='file' id='genome_upload' onchange='process_genome_upload();'>
+        <div id='header_row'  style='text-align:center;' class='col-xs-8' >
+
+          <h1 style='border-bottom: 1px solid #ccc;' >vcf2clinvar</h1>
+        </div>
+
+        <div class='col-xs-1'>
+          <button type="button" class="btn btn-default" data-toggle="modal" data-target="#configModal">
+                <span class="glyphicon glyphicon-cog" aria-hidden="true" style='opacity:0.6;'></span>
+            config
+          </button>
+        </div>
+
+        <div class='col-xs-1'>
+          <button type="button" class="btn btn-default" data-toggle="modal" data-target="#infoModal">
+                <span class="glyphicon glyphicon-info-sign" aria-hidden="true" style='opacity:0.6;'></span>
+          </button>
+        </div>
+
+
+				<!-- Config Modal -->
+				<div class="modal fade" id="configModal" tabindex="-1" role="dialog" aria-labelledby="configModalLabel">
+					<div class="modal-dialog" role="document">
+						<div class="modal-content">
+
+							<div class="modal-header">
+								<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+								<h4 class="modal-title" id="configModalLabel">vcf2clinvar.js Config</h4>
+							</div>
+
+							<div class="modal-body">
+
+                <p>
+
+                <label for="clinvar_upload" class="custom-file-upload2" style='text-align:center;'>
+                  <span class="glyphicon glyphicon-open-file" aria-hidden="true" style='opacity:0.6;'></span>
+                  <b>Upload New ClinVar VCF File</b>
+                </label>
+                <input id="clinvar_upload" type="file" onchange='process_clinvar_upload();' />
+
+                <div id='clinvar_vcf_info'><i>Default (2017-03-01)</i></div>
+                </p>
+
+                <p>
+
+                <label for="ref_23andme_upload" class="custom-file-upload2" style='text-align:center;'>
+                  <span class="glyphicon glyphicon-open-file" aria-hidden="true" style='opacity:0.6;'></span>
+                  <b>Upload New 23andMe Reference</b>
+                </label>
+                <input id="ref_23andme_upload" type="file" onchange='process_ref_23andme_upload();' />
+
+                <div id='ref_23andme_info'><i>Default (2017-03-01)</i></div>
+                </p>
+
+                <p>
+
+                <label for="ref_ancestrydna_upload" class="custom-file-upload2" style='text-align:center;'>
+                  <span class="glyphicon glyphicon-open-file" aria-hidden="true" style='opacity:0.6;'></span>
+                  <b>Upload New Ancestry Reference</b>
+                </label>
+                <input id="ref_ancestrydna_upload" type="file" onchange='process_ref_ancestrydna_upload();' />
+
+                <div id='ref_ancestrydna_info'><i>Default (2017-03-01)</i></div>
+                </p>
+
+							</div>
+
+							<div class="modal-footer">
+								<button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+							</div>
+
+						</div>
+					</div>
+				</div>
+
+				<!-- Config Modal -->
+				<div class="modal fade" id="infoModal" tabindex="-1" role="dialog" aria-labelledby="infoModal">
+					<div class="modal-dialog" role="document">
+						<div class="modal-content">
+
+							<div class="modal-header">
+								<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+								<h4 class="modal-title" id="infoModalLabel">vcf2clinvar.js</h4>
+							</div>
+
+							<div class="modal-body">
+
+                <p>
+
+                <b>vcf2clinvar.js</b> is a program to generate a report on matching a genome file to a ClinVar variant database.
+                </p>
+
+                <p>
+
+                The genome file is typically one provided by one of the direct to consumer (DTC) genotyping services such as
+                <a href='https://23andme.com'>23andMe</a> or <a href='https://ancestrydna.com'>AncestryDNA</a>.
+                The genotyping file provides information about your genomic variants at specific points in your genome.
+                As of this writing, both AncestryDNA and 23andMe get information on about 1 million points on your genome (of
+                the total 3.2 billion positions).
+
+                </p>
+                <p>
+
+                <a href='https://www.ncbi.nlm.nih.gov/clinvar/'>ClinVar</a> provides a database of variants as they relate
+                to human health.  ClinVar is provided by the National Institute of Health's (NIH) National Center for
+                Biotechnolog Information (NCBI).
+              
+                </p>
+
+                <p>
+                From their website:
+
+                <blockquote class='blockquote'>
+                  The information ... is not intended for direct diagnostic use or medical decision-making without review by a genetics professional.
+                  Individuals should not change their health behavior solely on the basis of information contained on this website.
+                  NIH does not independently verify the submitted information.
+                  If you have questions about the information contained on this website, please see a health care professional.
+                  More information about <a href='https://www.ncbi.nlm.nih.gov/home/about/policies.shtml'>NCBI's disclaimer policy</a> is available.
+                </blockquote>
+
+                The latest version of the ClinVar database can be found on their <a href='ftp://ftp.ncbi.nlm.nih.gov/pub/clinvar/'>FTP site</a>.
+                The ClinVar file required in this version of <b>vcf2clinvar.js</b> can be found under
+                <a href='ftp://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh37'>/pub/clinvar/vcf_GRCh37/</a><a href='ftp://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh37/clinvar.vcf.gz'>clinvar.vcf.gz</a>
+                
+
+                </p>
+                <p style='border-bottom: 1px solid #ccc;'>
+                </p>
+
+                <p>
+                All processing and 'file uploads' happens completely in the browser and, aside from the initial code and data file
+                downloads, there should be no server side communication.  Barring any bugs, all uploaded files should be completely local
+                to your computer.  This site does not use cookies.
+
+                </p>
+
+                <p>
+                Uploaded files can be a VCF file, an AncestryDNA file or a 23andMe file.  These can also be uploaded in gzip or zip format.
+                If the format is a zip archive, the first file is assumed to be the relevant VCF or genotype file.
+                </p>
+
+                <p>
+                All processing is done assuming human genome reference build 37 (hg19).
+                There is a default ClinVar file that is used which can be overrid by uploaded another ClinVar VCF database in the
+                <button type="button" class="btn btn-default">
+                 <span class="glyphicon glyphicon-cog" aria-hidden="true" style='opacity:0.6;'></span>config
+                </button>
+                section.
+                Processing of the AncestryDNA and 23andMe genotyping files are done by converting to VCF first (in browser) and then
+                creating a report.
+                The genotyping data format to VCF conversion is done by using a small reference file, one for each
+                of the AncestryDNA and 23andMe builds.
+                Different AncestryDNA and 23andMe reference files can be used by specifying an alternate in the
+                <button type="button" class="btn btn-default">
+                 <span class="glyphicon glyphicon-cog" aria-hidden="true" style='opacity:0.6;'></span>config
+                </button>
+                section.
+                </p>
+
+                <p>
+                The AncestryDNA and 23andMe reference files were taken from the
+                <a href='https://github.com/OpenHumans/open-humans-data-processing'>OpenHumans data processing</a> repository.
+                </p>
+
+                </p>
+                <p style='border-bottom: 1px solid #ccc;'>
+                </p>
+
+
+
+                <p>
+                <b>vcf2clinvar.js</b> is free and open source software.
+                Please see the <a href='https://github.com/abramconnelly/vcf2clinvar.js'>GitHub repository for all code</a>.
+                If you see any bugs, have any suggestions or want to see improvements, please consider
+                <a href='https://github.com/abramconnelly/vcf2clinvar.js/issues'>submitting an issue</a>.
+                <b>vcf2clinvar.js</b> is based off of <a href='https://www.openhumans.org'>OpenHumans</a>'s
+                <a href='https://github.com/openhumans/vcf2clinvar'>vcf2clinvar</a> Python program.
+
+                </p>
+
+							
+							</div>
+
+							<div class="modal-footer">
+								<button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+							</div>
+
+						</div>
+					</div>
+				</div>
+
+      </div> <!-- row -->
+
+      <div class='row'>
+
+
+        <div class='col-xs-2' style='border-right: 1px solid #ccc;'>
+
+            <button type=button' class='btn btn-info'>
+            <label for='genome_upload' class="custom-file-upload" style='text-align:center;'>
+              <span class="glyphicon glyphicon-open-file" aria-hidden="true" style='opacity:1.0;'></span>
+              <b><i>Process Genome</i></b>
+            </label>
+            <input type='file' id="genome_upload" onchange='queue_genome("genome_upload");' >
+            </button>
 
           <br><br>
 
           <p>
-          Generate a report based on matching a genome VCF to the VCF version of ClinVar's variant database.
+          Generate a report based on matching a genome to ClinVar's variant database.
+          </p>
+
+
+
+          <p>
+          VCF, 23andMe and AncestryDNA formats are accepted.
           </p>
         </div>
 
 
         <div id='main_div' class='col-xs-10'>
 
-          <div id="spinner" class="spinner spinner-32px spinner-h-center"></div>
+          <div id='welcome_text'>
+
+            <div class='row'>
+
+              <div class='col-xs-1'></div>
+
+              <div class='col-xs-10'>
+
+                <p>
+
+                <b>vcf2clinvar.js</b> is a program to generate a report on matching a genome file to a ClinVar variant database.
+                All processing is done in browser and local to your computer.
+                </p>
+
+                <p style='text-align:center;'>
+                  <button type=button' class='btn btn-info'>
+                    <label for="genome_upload2" class="custom-file-upload" style='text-align:center;'>
+                      <span class="glyphicon glyphicon-open-file" aria-hidden="true" style='opacity:1.0;'></span>
+                      <b><i>Process Genome</i></b>
+                    </label>
+                    <input type='file' id="genome_upload2" onchange='queue_genome("genome_upload2");' >
+                  </button>
+
+                </p>
+
+                <p>
+
+                The genome file is typically one provided by one of the direct to consumer (DTC) genotyping services such as
+                <a href='https://23andme.com'>23andMe</a> or <a href='https://ancestrydna.com'>AncestryDNA</a>.
+                The genotyping file provides information about your genomic variants at specific points in your genome.
+                As of this writing, both AncestryDNA and 23andMe get information on about 1 million points on your genome (of
+                the total 3.2 billion positions).
+
+                </p>
+                <p>
+
+                <a href='https://www.ncbi.nlm.nih.gov/clinvar/'>ClinVar</a> provides a database of variants as they relate
+                to human health.  ClinVar is provided by the National Institute of Health's (NIH) National Center for
+                Biotechnolog Information (NCBI).
+              
+                </p>
+
+                <p>
+                From their website:
+
+                <blockquote class='blockquote'>
+                  <h5>
+                  The information ... is not intended for direct diagnostic use or medical decision-making without review by a genetics professional.
+                  Individuals should not change their health behavior solely on the basis of information contained on this website.
+                  NIH does not independently verify the submitted information.
+                  If you have questions about the information contained on this website, please see a health care professional.
+                  More information about <a href='https://www.ncbi.nlm.nih.gov/home/about/policies.shtml'>NCBI's disclaimer policy</a> is available.
+                  </h5>
+                </blockquote>
+
+                </p>
+
+                <p>
+                If you would like to see a sample report based on a public 23andMe genotype file, hit the button below:
+                </p>
+
+                <p style='text-align:center;'>
+                  <button type=button' class='btn btn-default' onclick='queue_example_genome();'>
+                      <span class="glyphicon glyphicon-eye-open" aria-hidden="true" style='opacity:1.0;'></span>
+                      <b><i>See Sample Genome Report</i></b>
+                    </label>
+                  </button>
+                </p>
+
+                <p>
+                The sample report is based off of a
+                <a href='https://www.openhumans.org/data-management/datafile-download/8129/'>converted 23andMe VCF file</a>
+                available through <a href='https://www.openhumans.org'>OpenHumans</a>.
+                </p>
+
+
+
+              </div>
+
+              <div class='col-xs-1'></div>
+
+            </div>
+          </div>
+
+          <div id='processing' style='display:none;'>
+
+            <p style='text-align:center;'>
+              <div style='text-align:center;'>
+                <h3><i>Please wait while the report is being generated...</i></h3>
+              </div>
+            </p>
+
+            <p>
+            <!-- <div id="spinner" class="spinner spinner-32px spinner-h-center" style='display:none;'></div> -->
+            <div id="spinner" class="spinner spinner-32px spinner-h-center"></div>
+            </p>
+
+          </div>
 
 					<div id="main" style="display:none;">
 					<table id='table' class='tablesorter' data-sortlist="[[2,0]]">
