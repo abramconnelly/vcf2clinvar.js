@@ -659,7 +659,11 @@ function report_semaphore() {
 
   var rows = [];
   for (var ii=0; ii<res.length; ii++) {
-    var s =  [ res[ii][4], _sig_lookup[res[ii][5]], res[ii][6], res[ii][7] ].join("</td><td>") ;
+    var s =  [
+      "<a href='" + res[ii][8] + "'>" + res[ii][4] + "</a>",
+      _sig_lookup[res[ii][5]],
+      res[ii][6],
+      res[ii][7] ].join("</td><td>") ;
     rows.push(s);
   }
 
